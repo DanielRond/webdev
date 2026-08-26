@@ -67,7 +67,7 @@ Copie e cole o bloco abaixo. Nós vamos criar um autor, mas forçar um erro de c
 use App\Models\Autor;
 use App\Models\Livro;
 
-$totalAntes = Autor::count(); // Anota quantos autores existem [cite: 8]
+$totalAntes = Autor::count();
 
 try {
     DB::transaction(function () {
@@ -77,17 +77,20 @@ try {
             'nacionalidade' => 'Americano'
         ]);
 
-        // Passo 2: Forçamos um erro catastrófico simulado (ex: API da editora caiu) [cite: 8]
-        throw new \Exception("Falha na API da Editora. Não foi possível registrar o livro!"); [cite: 8]
+        // Passo 2: Forçamos um erro catastrófico simulado (ex: API da editora caiu)
+        throw new \Exception("Falha na API da Editora. Não foi possível registrar o livro!");
 
-        // Passo 3: Cria o pedido (Este passo NUNCA será alcançado) [cite: 8]
+        // Passo 3: Cria o livro (Este passo NUNCA será alcançado)
         $autor->livros()->create(['titulo' => 'Os Ventos de Inverno', 'ano_publicacao' => 2026]);
     });
 } catch (\Exception $e) {
-    dump("ERRO CAPTURADO: " . $e->getMessage()); [cite: 8]
+    dump("ERRO CAPTURADO: " . $e->getMessage());
 }
 
-$totalDepois = Autor::count(); // Verifica quantos autores existem agora [cite: 8]
+$totalDepois = Autor::count();
+
+dump("Total antes: " . $totalAntes);
+dump("Total depois: " . $totalDepois);
 ```
 
 🚨 **Analise a sua tela:**
