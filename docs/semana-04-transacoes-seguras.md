@@ -1,92 +1,115 @@
-# Semana 4: Transações Seguras de Banco (Integridade)
+# Tutorial Semana 4: Transações Seguras de Banco (Integridade)
 
-Nesta semana, você aprenderá a blindar o seu banco de dados contra falhas de sistema usando transações, garantindo que operações complexas só sejam salvas se tudo der 100% certo.
-
----
-
-## 1. A Analogia Ilustrada
-Pense em uma transferência bancária entre duas pessoas:
-1. O sistema retira R$ 50,00 da conta do **Carlos**.
-2. O sistema tenta adicionar R$ 50,00 na conta da **Ana**.
-
-Imagine se o sistema do banco cai exatamente após o Passo 1. O dinheiro do Carlos sumiu e a Ana não recebeu nada!
-Uma **Transação de Banco** cria uma cápsula de segurança ao redor dessas etapas. Se houver um erro no Passo 2, a transação executa um **Rollback** (desfaz a retirada de dinheiro do Carlos, voltando ao estado original). O dinheiro só é gravado de verdade (**Commit**) se os dois passos forem concluídos com sucesso.
+Nesta semana, você aprenderá a blindar o seu banco de dados contra falhas de sistema usando transações, garantindo que operações complexas só sejam salvas se tudo der 100% certo [cite: 8].
 
 ---
 
-## 2. A "Tradução" SQL (PostgreSQL) ➔ Eloquent (Laravel)
+## 1. O Conceito: A Analogia da Transferência Bancária
 
-No PostgreSQL, para blindar alterações, usamos:
+Para entender a importância das transações, pense em uma transferência bancária entre duas pessoas [cite: 8]:
+1. O sistema retira R$ 50,00 da conta do **Carlos** [cite: 8].
+2. O sistema tenta adicionar R$ 50,00 na conta da **Ana** [cite: 8].
+
+Imagine o desastre se o sistema do banco cai exatamente após o Passo 1: o dinheiro do Carlos sumiu e a Ana não recebeu nada [cite: 8]! 
+
+Uma **Transação de Banco de Dados** cria uma cápsula de segurança inquebrável ao redor dessas etapas [cite: 8]. Se houver qualquer erro no Passo 2, a transação executa um **Rollback** (desfaz a retirada de dinheiro do Carlos, voltando ao estado original) [cite: 8]. O dinheiro só é gravado de verdade no banco (um **Commit**) se os dois passos forem concluídos com sucesso absoluto [cite: 8].
+
+### A "Tradução" SQL
+No banco de dados (MySQL ou PostgreSQL), para blindar essas alterações, usamos três comandos principais [cite: 8]:
 ```sql
-BEGIN;
+BEGIN; -- Inicia a cápsula de segurança
 UPDATE contas SET saldo = saldo - 50 WHERE id = 1;
+
 -- Se ocorrer erro, executamos:
-ROLLBACK;
+ROLLBACK; -- Desfaz tudo desde o 'BEGIN'
+
 -- Se der tudo certo, executamos:
-COMMIT;
+COMMIT; -- Salva as alterações de forma permanente
 ```
 
-No Laravel, o Eloquent simplifica isso através do método `DB::transaction()` que gerencia o início, o commit e o rollback automaticamente em caso de falhas (Exceptions):
+### O Eloquent (Laravel)
+No Laravel, não precisamos escrever `BEGIN`, `COMMIT` ou `ROLLBACK` manualmente. O Eloquent simplifica isso através do método `DB::transaction()` [cite: 8]. Ele recebe uma *closure* (uma função anônima) e gerencia o início, o commit e o rollback automaticamente caso qualquer falha (Exception) ocorra dentro daquele bloco de código [cite: 8].
+
 ```php
 use Illuminate\Support\Facades\DB;
 
 DB::transaction(function () {
-    // Se qualquer uma dessas linhas disparar um erro, o Laravel limpa o banco automaticamente!
-    $carlos->sacar(50);
-    $ana->depositar(50);
+    // Se qualquer uma destas linhas disparar um erro, o Laravel limpa o banco automaticamente! [cite: 8]
+    $carlos->sacar(50); [cite: 8]
+    $ana->depositar(50); [cite: 8]
 });
 ```
 
 ---
 
-## 3. O Guia de Código Passo a Passo
+## 2. A Tarefa Prática (Sua PoC 4 Melhorada)
 
-### Passo 1: Criar um cenário de teste com falha simulada
-Abra o console do Laravel Tinker para simularmos o fluxo em que tentamos criar um Pedido para um Cliente, mas simulamos um erro logo após criar o Pedido para garantir que ele seja desfeito.
+Para a sua PoC, vamos continuar usando o nosso sistema de **Autores e Livros**, mas com um upgrade fantástico: vamos escutar o banco de dados para **ver** o `ROLLBACK` e o `COMMIT` acontecendo ao vivo!
 
----
+O cenário é o seguinte: Uma editora só cadastra um novo Autor no sistema se já tiver um Livro de estreia pronto. Se a criação do livro falhar, o Autor não pode ficar salvo sozinho no banco (precisa sofrer Rollback).
 
-## 4. A Execução no Tinker (A sua PoC 4)
-
-Abra o Laravel Tinker:
+### Passo 1: Preparando o Terreno
+Abra o Laravel Tinker no terminal [cite: 8]:
 ```bash
 php artisan tinker
 ```
 
-Execute o código abaixo, que tenta cadastrar um novo cliente e um pedido dentro de uma transação, mas força um erro intencional (`throw new Exception`) no meio do caminho:
+Ligue o nosso "espião" de Queries (como fizemos na Semana 2) para vermos os comandos de transação:
+```php
+use Illuminate\Support\Facades\DB; // Necessário para os próximos passos
+DB::listen(function ($query) { dump("SQL EXECUTADO: " . $query->sql); });
+```
+
+### Passo 2: O Desastre Simulado (Testando o Rollback)
+Copie e cole o bloco abaixo. Nós vamos criar um autor, mas forçar um erro de código (`throw new \Exception`) logo antes de criar o livro [cite: 8].
 
 ```php
-use Illuminate\Support\Facades\DB;
-use App\Models\Cliente;
-use App\Models\Pedido;
+use App\Models\Autor;
+use App\Models\Livro;
 
-// Verifique a contagem de clientes antes de rodar
-$totalAntes = Cliente::count();
+$totalAntes = Autor::count(); // Anota quantos autores existem [cite: 8]
 
 try {
     DB::transaction(function () {
-        // Passo 1: Cria um novo cliente
-        $novoCliente = Cliente::create([
-            'nome' => 'Cliente Transacional S/A',
-            'email' => 'transacao@teste.com'
+        // Passo 1: Cria um novo autor
+        $autor = Autor::create([
+            'nome' => 'George R. R. Martin',
+            'nacionalidade' => 'Americano'
         ]);
 
-        // Passo 2: Força um erro de código simulando que o sistema de pagamentos falhou
-        throw new \Exception("Falha no servidor de pagamentos externa!");
+        // Passo 2: Forçamos um erro catastrófico simulado (ex: API da editora caiu) [cite: 8]
+        throw new \Exception("Falha na API da Editora. Não foi possível registrar o livro!"); [cite: 8]
 
-        // Passo 3: Cria o pedido (Este passo nunca será alcançado)
-        $novoCliente->pedidos()->create(['valor' => 999.00]);
+        // Passo 3: Cria o pedido (Este passo NUNCA será alcançado) [cite: 8]
+        $autor->livros()->create(['titulo' => 'Os Ventos de Inverno', 'ano_publicacao' => 2026]);
     });
 } catch (\Exception $e) {
-    dump("ERRO CAPTURADO: " . $e->getMessage());
+    dump("ERRO CAPTURADO: " . $e->getMessage()); [cite: 8]
 }
 
-// Verifique a contagem de clientes após a falha
-$totalDepois = Cliente::count();
-
-dump("Total de clientes antes: " . $totalAntes);
-dump("Total de clientes depois: " . $totalDepois);
+$totalDepois = Autor::count(); // Verifica quantos autores existem agora [cite: 8]
 ```
 
-### O que você vai comprovar?
-Você verá que `Total antes` e `Total depois` terão **o mesmo valor**. O registro "Cliente Transacional S/A" foi apagado (sofreu Rollback) automaticamente pelo Laravel porque a exceção foi disparada, garantindo que você não tenha registros órfãos ou inconsistências no banco PostgreSQL.
+🚨 **Analise a sua tela:**
+1. Você verá `SQL EXECUTADO: "start transaction"` (o equivalente ao `BEGIN`).
+2. Você verá o `insert` do Autor George R. R. Martin.
+3. Você verá o Erro sendo impresso.
+4. E a mágica: Você verá `SQL EXECUTADO: "rollback"`.
+5. Se você conferir `$totalAntes` e `$totalDepois`, eles **serão exatamente iguais**. O autor foi apagado instantaneamente para proteger a integridade do sistema!
+
+### Passo 3: O Sucesso (Testando o Commit)
+Agora, vamos fazer dar certo. Cole o bloco abaixo (sem o erro intencional):
+
+```php
+DB::transaction(function () {
+    $autor = Autor::create([
+        'nome' => 'J. K. Rowling',
+        'nacionalidade' => 'Britânica'
+    ]);
+
+    $autor->livros()->create(['titulo' => 'Harry Potter e a Pedra Filosofal', 'ano_publicacao' => 1997]);
+});
+```
+
+✅ **Critério de Sucesso:**
+Observe as queries geradas no terminal. Você verá `start transaction`, os dois `inserts` (um para a tabela autores, outro para livros), e no final, um triunfante `SQL EXECUTADO: "commit"`. O sistema garantiu que ambos foram salvos juntos! Se você conseguir ver o `commit` e o `rollback` em ação no seu terminal, sua PoC 4 está finalizada com sucesso!
